@@ -1,0 +1,263 @@
+{% extends "base.html" %}
+{% block title %}Race Outcome Predictor{% endblock %}
+
+{% block extra_css %}
+<style>
+h1 { animation: heroEntrance 0.8s cubic-bezier(0.16,1,0.3,1) both; display:inline-block; }
+@keyframes heroEntrance {
+    from { opacity:0; transform: perspective(600px) rotateX(20deg) translateY(-20px); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0);     }
+}
+#resultSection { animation: resultReveal 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+@keyframes resultReveal {
+    from { opacity:0; transform: perspective(500px) rotateY(12deg) translateX(30px) scale(0.95); }
+    to   { opacity:1; transform: perspective(500px) rotateY(0deg)  translateX(0)    scale(1);    }
+}
+#predIcon { animation: iconBounce 0.7s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes iconBounce {
+    from { transform: scale(0) rotate(-20deg); opacity:0; }
+    to   { transform: scale(1) rotate(0deg);   opacity:1; }
+}
+/* Outcome legend tiles 3-D hover */
+.col-md-3 > div[style] {
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s;
+}
+.col-md-3 > div[style]:hover {
+    transform: perspective(400px) rotateY(-8deg) rotateX(4deg) translateY(-6px) scale(1.05);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.25);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 text-white text-center mb-4">
+    <h1><i class="fas fa-layer-group"></i> Race Outcome Predictor</h1>
+    <p class="lead">Predict whether a driver will Win, reach the Podium, score Points, or retire</p>
+  </div>
+</div>
+
+<div class="row">
+  <!-- ── Input ── -->
+  <div class="col-md-5 mb-4">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-sliders-h"></i> Driver & Race Details</h5></div>
+      <div class="card-body">
+        <form id="mcForm">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Starting Grid Position</label>
+              <input type="number" class="form-control" id="grid" value="5" min="1" max="20">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Qualifying Position</label>
+              <input type="number" class="form-control" id="qualifying_position" value="5" min="1" max="20">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Driver Championship Rank</label>
+              <input type="number" class="form-control" id="driver_standing_pos" value="5" min="1" max="25">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Driver Championship Points</label>
+              <input type="number" class="form-control" id="driver_points_cum" value="100" min="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Driver Race Wins (Season)</label>
+              <input type="number" class="form-control" id="driver_wins_cum" value="1" min="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Team Championship Rank</label>
+              <input type="number" class="form-control" id="constructor_standing_pos" value="3" min="1" max="15">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Team Championship Points</label>
+              <input type="number" class="form-control" id="constructor_points_cum" value="200" min="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Team Race Wins (Season)</label>
+              <input type="number" class="form-control" id="constructor_wins_cum" value="2" min="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label">Season</label>
+              <input type="number" class="form-control" id="year" value="2023" min="1950" max="2025">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Race Number</label>
+              <input type="number" class="form-control" id="round" value="10" min="1" max="24">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="fas fa-magic"></i> Predict Race Outcome
+          </button>
+        </form>
+
+        <hr>
+        <p class="text-muted small mb-2">Quick examples:</p>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-warning btn-sm" onclick="loadPreset('winner')">🥇 Race Winner</button>
+          <button class="btn btn-outline-info btn-sm"   onclick="loadPreset('points')">🏅 Points Finisher</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadPreset('dnf')">❌ Retirement Risk</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="col-md-7 mb-4">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-chart-bar"></i> Prediction Result</h5></div>
+      <div class="card-body d-flex flex-column justify-content-center">
+
+        <div id="initialMessage" class="text-center text-muted py-5">
+          <i class="fas fa-arrow-left fa-3x mb-3 d-block"></i>
+          Fill in the details and click <strong>Predict Race Outcome</strong>
+        </div>
+
+        <div id="loadingSection" style="display:none;" class="text-center py-5">
+          <div class="spinner-border text-danger" role="status"></div>
+          <p class="mt-3">Analysing race data…</p>
+        </div>
+
+        <div id="resultSection" style="display:none;">
+          <div class="text-center mb-4">
+            <div id="predIcon" class="display-1 mb-2"></div>
+            <h3 id="predText"></h3>
+          </div>
+          <canvas id="barChart" height="220"></canvas>
+
+          <div class="alert alert-info mt-3 mb-0 small">
+            <i class="fas fa-info-circle"></i> <strong>Confidence Level:</strong> Our forecast analyzes driver and team performance across multiple race scenarios.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Outcome legend -->
+<div class="row">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-info-circle"></i> What Each Outcome Means</h5></div>
+      <div class="card-body">
+        <div class="row text-center">
+          <div class="col-md-3 mb-2">
+            <div class="p-3 rounded" style="background:#FFD70022;border:2px solid #FFD700">
+              <div class="fs-2">🥇</div><strong>Win</strong><br><small>Crosses the line in 1st place</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="p-3 rounded" style="background:#C0C0C022;border:2px solid #C0C0C0">
+              <div class="fs-2">🥈</div><strong>Podium</strong><br><small>Finishes 2nd or 3rd</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="p-3 rounded" style="background:#CD7F3222;border:2px solid #CD7F32">
+              <div class="fs-2">🏅</div><strong>Points</strong><br><small>Finishes between 4th and 10th</small>
+            </div>
+          </div>
+          <div class="col-md-3 mb-2">
+            <div class="p-3 rounded" style="background:#6c757d22;border:2px solid #6c757d">
+              <div class="fs-2">❌</div><strong>Retirement / No Points</strong><br><small>Did not finish or outside top 10</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CLASS_COLORS = { win:'#FFD700', podium:'#C0C0C0', points:'#CD7F32', retirement:'#6c757d' };
+const CLASS_ICONS  = { win:'🥇', podium:'🥈', points:'🏅', retirement:'❌' };
+const CLASS_LABELS = { win:'Win', podium:'Podium', points:'Points', retirement:'Retirement / No Points' };
+let barChart = null;
+
+document.getElementById('mcForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  document.getElementById('initialMessage').style.display = 'none';
+  document.getElementById('resultSection').style.display  = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+
+  const payload = {
+    grid:                     +document.getElementById('grid').value,
+    qualifying_position:      +document.getElementById('qualifying_position').value,
+    driver_standing_pos:      +document.getElementById('driver_standing_pos').value,
+    driver_points_cum:        +document.getElementById('driver_points_cum').value,
+    driver_wins_cum:          +document.getElementById('driver_wins_cum').value,
+    constructor_standing_pos: +document.getElementById('constructor_standing_pos').value,
+    constructor_points_cum:   +document.getElementById('constructor_points_cum').value,
+    constructor_wins_cum:     +document.getElementById('constructor_wins_cum').value,
+    year:                     +document.getElementById('year').value,
+    round:                    +document.getElementById('round').value
+  };
+
+  try {
+    const res  = await fetch('/api/predict-result-class', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('resultSection').style.display  = 'block';
+
+    const pred = data.prediction;
+    document.getElementById('predIcon').textContent = CLASS_ICONS[pred] || '?';
+    document.getElementById('predText').textContent = 'Predicted: ' + (CLASS_LABELS[pred] || pred.toUpperCase());
+
+    // Bar chart
+    const probs = data.probabilities;
+    const labels = Object.keys(probs);
+    const values = labels.map(k => +(probs[k] * 100).toFixed(1));
+    const colors = labels.map(k => CLASS_COLORS[k] || '#888');
+
+    if (barChart) barChart.destroy();
+    barChart = new Chart(document.getElementById('barChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: labels.map(l => CLASS_LABELS[l] || (l.charAt(0).toUpperCase() + l.slice(1))),
+        datasets: [{ label: 'Likelihood (%)', data: values,
+                     backgroundColor: colors, borderRadius: 6 }]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true, max: 100,
+                       title: { display: true, text: 'Likelihood (%)' } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+  } catch (err) {
+    alert('Prediction error: ' + err.message);
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('initialMessage').style.display = 'block';
+  }
+});
+
+function loadPreset(type) {
+  const p = {
+    winner: [1,1,1,350,8,1,600,12,2023,10],
+    points: [8,8,6,80,0,4,150,1,2023,10],
+    dnf:    [18,18,15,5,0,9,10,0,2023,10]
+  };
+  const ids = ['grid','qualifying_position','driver_standing_pos','driver_points_cum',
+               'driver_wins_cum','constructor_standing_pos','constructor_points_cum',
+               'constructor_wins_cum','year','round'];
+  p[type].forEach((v,i) => document.getElementById(ids[i]).value = v);
+}
+</script>
+{% endblock %}

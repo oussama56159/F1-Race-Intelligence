@@ -1,0 +1,200 @@
+{% extends "base.html" %}
+{% block title %}F1 Race Intelligence — Home{% endblock %}
+
+{% block extra_css %}
+<style>
+/* ── Hero title 3-D depth effect ── */
+.hero-title {
+    text-shadow:
+        2px 2px 0 rgba(0,0,0,0.3),
+        4px 4px 0 rgba(0,0,0,0.15),
+        6px 6px 0 rgba(0,0,0,0.08);
+    animation: heroEntrance 0.9s cubic-bezier(0.16,1,0.3,1) both;
+    display: inline-block;
+}
+@keyframes heroEntrance {
+    from { opacity:0; transform: perspective(600px) rotateX(25deg) translateY(-30px) scale(0.9); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0)     scale(1);   }
+}
+.hero-subtitle {
+    animation: fadeSlideUp 0.7s 0.25s cubic-bezier(0.16,1,0.3,1) both;
+}
+
+/* ── Staggered card entrance ── */
+.model-card { animation: cardPop 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+.col-md-4:nth-child(1) .model-card { animation-delay: 0.10s; }
+.col-md-4:nth-child(2) .model-card { animation-delay: 0.20s; }
+.col-md-4:nth-child(3) .model-card { animation-delay: 0.30s; }
+.col-md-6:nth-child(4) .model-card { animation-delay: 0.40s; }
+.col-md-6:nth-child(5) .model-card { animation-delay: 0.50s; }
+@keyframes cardPop {
+    from { opacity:0; transform: perspective(600px) rotateY(-15deg) translateX(-20px) scale(0.9); }
+    to   { opacity:1; transform: perspective(600px) rotateY(0deg)   translateX(0)     scale(1);   }
+}
+
+/* ── Stats counter pop ── */
+.stats-number.updated { animation: countPop 0.45s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes countPop {
+    0%   { transform: scale(1);    }
+    50%  { transform: scale(1.3);  color: #E10600; }
+    100% { transform: scale(1);    }
+}
+
+/* ── Feature icon hover ── */
+.feature-icon {
+    display: inline-block;
+    transition: transform 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+h6:hover .feature-icon { transform: rotate(-12deg) scale(1.35); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+  <div class="col-12 text-center text-white">
+    <h1 class="display-3 fw-bold mb-2 hero-title">
+      <i class="fas fa-flag-checkered"></i> F1 Race Intelligence
+    </h1>
+    <p class="lead hero-subtitle">Five powerful prediction tools trained on 70+ years of Formula 1 history</p>
+  </div>
+</div>
+
+<!-- Live stats row -->
+<div class="row mb-5" id="statsRow">
+  <div class="col-6 col-md-3 mb-3">
+    <div class="stats-box text-center">
+      <div class="stats-number" id="totalRecords">—</div>
+      <div class="stats-label">Race Entries Analysed</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 mb-3">
+    <div class="stats-box text-center">
+      <div class="stats-number" id="yearsCovered">—</div>
+      <div class="stats-label">Seasons Covered</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 mb-3">
+    <div class="stats-box text-center">
+      <div class="stats-number" id="numCountries">—</div>
+      <div class="stats-label">Grand Prix Countries</div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3 mb-3">
+    <div class="stats-box text-center">
+      <div class="stats-number">5</div>
+      <div class="stats-label">Prediction Tools</div>
+    </div>
+  </div>
+</div>
+
+<!-- Tool cards -->
+<div class="row">
+
+  <div class="col-md-4 mb-4">
+    <div class="card model-card h-100" onclick="location.href='/binary-classification'">
+      <div class="card-body text-center">
+        <div class="model-icon"><i class="fas fa-trophy"></i></div>
+        <h4>Podium Chance</h4>
+        <p class="text-muted">Will this driver finish in the top 3? Get a clear yes/no answer with confidence level.</p>
+        <span class="badge bg-success me-1">Highly Reliable</span>
+        <span class="badge bg-secondary">Yes / No</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card model-card h-100" onclick="location.href='/multiclass-classification'">
+      <div class="card-body text-center">
+        <div class="model-icon"><i class="fas fa-layer-group"></i></div>
+        <h4>Race Outcome</h4>
+        <p class="text-muted">Predict whether a driver will Win, reach the Podium, score Points, or retire from the race.</p>
+        <span class="badge bg-info me-1">4 Outcomes</span>
+        <span class="badge bg-secondary">Win · Podium · Points · DNF</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-4 mb-4">
+    <div class="card model-card h-100" onclick="location.href='/regression-position'">
+      <div class="card-body text-center">
+        <div class="model-icon"><i class="fas fa-chart-line"></i></div>
+        <h4>Finishing Position</h4>
+        <p class="text-muted">Get a precise predicted finishing position from 1st to 20th, with an estimated range.</p>
+        <span class="badge bg-warning text-dark me-1">Precise</span>
+        <span class="badge bg-secondary">P1 – P20</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 mb-4">
+    <div class="card model-card h-100" onclick="location.href='/clustering'">
+      <div class="card-body text-center">
+        <div class="model-icon"><i class="fas fa-users"></i></div>
+        <h4>Driver Profiles</h4>
+        <p class="text-muted">Discover which performance tier a driver belongs to — from Elite Champions to Back Markers — based on their stats.</p>
+        <span class="badge bg-secondary me-1">4 Profiles</span>
+        <span class="badge bg-secondary">Performance Tiers</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-md-6 mb-4">
+    <div class="card model-card h-100" onclick="location.href='/race-prediction'">
+      <div class="card-body text-center">
+        <div class="model-icon"><i class="fas fa-flag-checkered"></i></div>
+        <h4>Full Race Forecast</h4>
+        <p class="text-muted">Build a full grid and get a complete predicted race result before the lights go out.</p>
+        <span class="badge bg-danger me-1">Full Grid</span>
+        <span class="badge bg-secondary">Pre-Race</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Feature highlights -->
+<div class="row mt-2">
+  <div class="col-12">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-star"></i> Why Trust Our Predictions?</h5></div>
+      <div class="card-body">
+        <div class="row">
+          <div class="col-md-4 mb-3">
+            <h6><i class="fas fa-brain text-danger feature-icon"></i> Trained on Real Data</h6>
+            <p class="small mb-0">Every prediction is generated by models trained on actual race results — no guesswork or hand-crafted rules.</p>
+          </div>
+          <div class="col-md-4 mb-3">
+            <h6><i class="fas fa-database text-danger feature-icon"></i> 70+ Years of F1 History</h6>
+            <p class="small mb-0">Over 26,000 race entries from 1950 to 2024, covering driver standings, team performance, qualifying, and more.</p>
+          </div>
+          <div class="col-md-4 mb-3">
+            <h6><i class="fas fa-chart-bar text-danger feature-icon"></i> Clear Visual Results</h6>
+            <p class="small mb-0">Every prediction comes with easy-to-read charts and confidence indicators so you always know how strong the forecast is.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+fetch('/api/stats')
+  .then(r => r.json())
+  .then(d => {
+    function setNum(id, val) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = val;
+      el.classList.remove('updated');
+      void el.offsetWidth; // force reflow
+      el.classList.add('updated');
+    }
+    setNum('totalRecords', d.total_records.toLocaleString());
+    setNum('yearsCovered', d.years_covered);
+    setNum('numCountries', d.num_countries);
+  })
+  .catch(e => console.error('Stats error:', e));
+</script>
+{% endblock %}

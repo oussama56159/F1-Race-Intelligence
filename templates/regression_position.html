@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Finishing Position Predictor{% endblock %}
+
+{% block extra_css %}
+<style>
+h1 { animation: heroEntrance 0.8s cubic-bezier(0.16,1,0.3,1) both; display:inline-block; }
+@keyframes heroEntrance {
+    from { opacity:0; transform: perspective(600px) rotateX(20deg) translateY(-20px); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0);     }
+}
+#resultSection { animation: resultReveal 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+@keyframes resultReveal {
+    from { opacity:0; transform: perspective(500px) rotateY(12deg) translateX(30px) scale(0.95); }
+    to   { opacity:1; transform: perspective(500px) rotateY(0deg)  translateX(0)    scale(1);    }
+}
+/* Big position number 3-D pop */
+#posNumber {
+    transition: transform 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    display: inline-block;
+    transform-style: preserve-3d;
+}
+#posNumber.pop { animation: posPop 0.6s cubic-bezier(0.34,1.56,0.64,1); }
+@keyframes posPop {
+    0%   { transform: perspective(400px) rotateY(-30deg) scale(0.5); opacity:0; }
+    60%  { transform: perspective(400px) rotateY(8deg)   scale(1.1); opacity:1; }
+    100% { transform: perspective(400px) rotateY(0deg)   scale(1);   opacity:1; }
+}
+/* Metric boxes hover */
+.p-3.rounded.bg-light {
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.35s;
+}
+.p-3.rounded.bg-light:hover {
+    transform: perspective(300px) rotateX(-6deg) translateY(-4px) scale(1.04);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 text-white text-center mb-4">
+    <h1><i class="fas fa-chart-line"></i> Finishing Position Predictor</h1>
+    <p class="lead">Get a precise predicted finishing position from 1st to 20th</p>
+  </div>
+</div>
+
+<div class="row">
+  <!-- ── Input ── -->
+  <div class="col-md-5 mb-4">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-sliders-h"></i> Driver & Race Details</h5></div>
+      <div class="card-body">
+        <form id="regForm">
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Starting Grid Position</label>
+              <input type="number" class="form-control" id="grid" value="5" min="0" max="34">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Qualifying Position</label>
+              <input type="number" class="form-control" id="qualifying_position" value="5" min="1" max="28">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Driver Championship Rank</label>
+              <input type="number" class="form-control" id="driver_standing_pos" value="5" min="1" max="105">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Driver Championship Points</label>
+              <input type="number" class="form-control" id="driver_points_cum" value="100" min="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Driver Race Wins (Season)</label>
+              <input type="number" class="form-control" id="driver_wins_cum" value="1" min="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Team Championship Rank</label>
+              <input type="number" class="form-control" id="constructor_standing_pos" value="3" min="1" max="21">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Team Championship Points</label>
+              <input type="number" class="form-control" id="constructor_points_cum" value="200" min="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Team Race Wins (Season)</label>
+              <input type="number" class="form-control" id="constructor_wins_cum" value="2" min="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-3">
+            <div class="col-4">
+              <label class="form-label">Season</label>
+              <input type="number" class="form-control" id="year" value="2023" min="1950" max="2025">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Race Number</label>
+              <input type="number" class="form-control" id="round" value="10" min="1" max="24">
+            </div>
+            <div class="col-4">
+              <label class="form-label">Podium Likely? (1=Yes)</label>
+              <input type="number" class="form-control" id="podium" value="0" min="0" max="1">
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="fas fa-magic"></i> Predict Finishing Position
+          </button>
+        </form>
+
+        <hr>
+        <p class="text-muted small mb-2">Quick examples:</p>
+        <div class="d-flex flex-wrap gap-2">
+          <button class="btn btn-outline-danger btn-sm"   onclick="loadPreset('front')">🏎️ Front Row Starter</button>
+          <button class="btn btn-outline-warning btn-sm"  onclick="loadPreset('mid')">🔶 Midfield Driver</button>
+          <button class="btn btn-outline-secondary btn-sm" onclick="loadPreset('back')">🔻 Back of the Grid</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Results ── -->
+  <div class="col-md-7 mb-4">
+    <div class="card h-100">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-flag-checkered"></i> Prediction Result</h5></div>
+      <div class="card-body d-flex flex-column justify-content-center">
+
+        <div id="initialMessage" class="text-center text-muted py-5">
+          <i class="fas fa-arrow-left fa-3x mb-3 d-block"></i>
+          Fill in the details and click <strong>Predict Finishing Position</strong>
+        </div>
+
+        <div id="loadingSection" style="display:none;" class="text-center py-5">
+          <div class="spinner-border text-danger" role="status"></div>
+          <p class="mt-3">Analysing race data…</p>
+        </div>
+
+        <div id="resultSection" style="display:none;">
+          <!-- Big position number -->
+          <div class="text-center mb-4">
+            <div class="display-1 fw-bold text-danger" id="posNumber">—</div>
+            <p class="lead mb-1">Predicted Finishing Position</p>
+            <p class="text-muted">Expected range: <strong id="ciText">—</strong></p>
+          </div>
+
+          <!-- Position gauge bar -->
+          <div class="mb-4">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+              <span>1st Place</span><span>10th Place</span><span>20th Place</span>
+            </div>
+            <div class="progress" style="height:20px;">
+              <div id="posBar" class="progress-bar bg-danger" role="progressbar" style="width:0%"></div>
+            </div>
+          </div>
+
+          <!-- Metrics -->
+          <div class="row text-center mb-3">
+            <div class="col-12">
+              <div class="p-3 rounded bg-light">
+                <div class="fs-5 text-danger"><i class="fas fa-check-circle"></i> <strong>Highly Reliable Forecast</strong></div>
+                <small class="text-muted">Based on comprehensive race data analysis</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="alert alert-info mb-0 small">
+            <i class="fas fa-info-circle"></i> <strong>Confidence Level:</strong> Our position forecasts consider grid position, driver form, and team performance.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('regForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  document.getElementById('initialMessage').style.display = 'none';
+  document.getElementById('resultSection').style.display  = 'none';
+  document.getElementById('loadingSection').style.display = 'block';
+
+  const payload = {
+    grid:                     +document.getElementById('grid').value,
+    qualifying_position:      +document.getElementById('qualifying_position').value,
+    driver_standing_pos:      +document.getElementById('driver_standing_pos').value,
+    driver_points_cum:        +document.getElementById('driver_points_cum').value,
+    driver_wins_cum:          +document.getElementById('driver_wins_cum').value,
+    constructor_standing_pos: +document.getElementById('constructor_standing_pos').value,
+    constructor_points_cum:   +document.getElementById('constructor_points_cum').value,
+    constructor_wins_cum:     +document.getElementById('constructor_wins_cum').value,
+    year:                     +document.getElementById('year').value,
+    round:                    +document.getElementById('round').value,
+    podium:                   +document.getElementById('podium').value
+  };
+
+  try {
+    const res  = await fetch('/api/predict-position', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('resultSection').style.display  = 'block';
+
+    const pos = data.predicted_position;
+    const posEl = document.getElementById('posNumber');
+    posEl.textContent = 'P' + Math.round(pos);
+    posEl.classList.remove('pop');
+    void posEl.offsetWidth;
+    posEl.classList.add('pop');
+    document.getElementById('ciText').textContent =
+      'P' + data.confidence_interval[0] + ' – P' + data.confidence_interval[1];
+
+    // Gauge bar (P1=5%, P20=100%)
+    const pct = ((pos - 1) / 19 * 95 + 5).toFixed(1);
+    document.getElementById('posBar').style.width = pct + '%';
+
+  } catch (err) {
+    alert('Prediction error: ' + err.message);
+    document.getElementById('loadingSection').style.display = 'none';
+    document.getElementById('initialMessage').style.display = 'block';
+  }
+});
+
+function loadPreset(type) {
+  const p = {
+    front: [1,1,1,350,8,1,600,12,2023,10,1],
+    mid:   [10,10,8,80,0,5,150,1,2023,10,0],
+    back:  [18,18,15,5,0,9,10,0,2023,10,0]
+  };
+  const ids = ['grid','qualifying_position','driver_standing_pos','driver_points_cum',
+               'driver_wins_cum','constructor_standing_pos','constructor_points_cum',
+               'constructor_wins_cum','year','round','podium'];
+  p[type].forEach((v,i) => document.getElementById(ids[i]).value = v);
+}
+</script>
+{% endblock %}

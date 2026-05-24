@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+{% block title %}Driver Performance Profiles{% endblock %}
+
+{% block extra_css %}
+<style>
+h1 { animation: heroEntrance 0.8s cubic-bezier(0.16,1,0.3,1) both; display:inline-block; }
+@keyframes heroEntrance {
+    from { opacity:0; transform: perspective(600px) rotateX(20deg) translateY(-20px); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0);     }
+}
+/* Tier cards staggered entrance */
+.col-lg-4 .card { animation: tierSlide 0.55s cubic-bezier(0.16,1,0.3,1) both; }
+.col-lg-4 .card:nth-child(1) { animation-delay: 0.05s; }
+.col-lg-4 .card:nth-child(2) { animation-delay: 0.15s; }
+.col-lg-4 .card:nth-child(3) { animation-delay: 0.25s; }
+.col-lg-4 .card:nth-child(4) { animation-delay: 0.35s; }
+.col-lg-4 .card:nth-child(5) { animation-delay: 0.45s; }
+@keyframes tierSlide {
+    from { opacity:0; transform: perspective(400px) rotateX(15deg) translateY(20px) scale(0.95); }
+    to   { opacity:1; transform: perspective(400px) rotateX(0deg)  translateY(0)    scale(1);    }
+}
+/* Cluster result pop */
+#clusterAlert { animation: alertPop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; }
+@keyframes alertPop {
+    from { transform: scale(0.8) rotateX(-10deg); opacity:0; }
+    to   { transform: scale(1)   rotateX(0deg);   opacity:1; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 text-white text-center mb-4">
+    <h1><i class="fas fa-users"></i> Driver Performance Profiles</h1>
+    <p class="lead">Discover which performance tier a driver belongs to based on their race statistics</p>
+    <div class="d-inline-flex gap-3 mt-2">
+      <span class="badge bg-light text-dark fs-6">4 Performance Tiers</span>
+    </div>
+  </div>
+</div>
+
+<div class="row">
+  <!-- ── Scatter plot ── -->
+  <div class="col-lg-8 mb-4">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-chart-scatter"></i> Performance Map</h5></div>
+      <div class="card-body">
+        <canvas id="scatterChart" height="90"></canvas>
+        <p class="text-muted small mt-2 mb-0">
+          Each dot represents a race entry. Colour indicates the performance tier assigned by our system.
+          Drivers with similar race histories cluster together.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tier cards ── -->
+  <div class="col-lg-4 mb-4">
+    <div class="card mb-3">
+      <div class="card-header" style="background:#E1060022;border-left:4px solid #E10600;">
+        <h6 class="mb-0">🏆 Tier 1 — Elite Champions</h6>
+      </div>
+      <div class="card-body small">
+        The very best on the grid. Starting from the front, racking up points and victories consistently throughout the season.
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header" style="background:#FFA50022;border-left:4px solid #FFA500;">
+        <h6 class="mb-0">🔶 Tier 2 — Podium Contenders</h6>
+      </div>
+      <div class="card-body small">
+        Strong, competitive drivers regularly challenging for podiums. Solid points scorers with occasional race wins.
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header" style="background:#1E90FF22;border-left:4px solid #1E90FF;">
+        <h6 class="mb-0">🔵 Tier 3 — Points Scorers</h6>
+      </div>
+      <div class="card-body small">
+        Competitive drivers who regularly finish in the points. Occasionally threaten the podium on a good day.
+      </div>
+    </div>
+    <div class="card mb-3">
+      <div class="card-header" style="background:#80808022;border-left:4px solid #808080;">
+        <h6 class="mb-0">🔻 Tier 4 — Developing Drivers</h6>
+      </div>
+      <div class="card-body small">
+        Drivers and teams still building their competitiveness. Typically starting from the back with fewer points finishes.
+      </div>
+    </div>
+
+    <!-- Assign new point -->
+    <div class="card">
+      <div class="card-header"><h6 class="mb-0"><i class="fas fa-crosshairs"></i> Profile a Driver</h6></div>
+      <div class="card-body">
+        <form id="clusterForm">
+          <div class="mb-2">
+            <label class="form-label small">Starting Grid Position</label>
+            <input type="number" class="form-control form-control-sm" id="c_grid" value="5" min="0" max="34">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Championship Points</label>
+            <input type="number" class="form-control form-control-sm" id="c_driver_points_cum" value="100" min="0">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Race Wins (Season)</label>
+            <input type="number" class="form-control form-control-sm" id="c_driver_wins_cum" value="1" min="0">
+          </div>
+          <div class="mb-2">
+            <label class="form-label small">Team Championship Points</label>
+            <input type="number" class="form-control form-control-sm" id="c_constructor_points_cum" value="200" min="0">
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm w-100">Find Performance Tier</button>
+        </form>
+        <div id="clusterResult" class="mt-2" style="display:none;">
+          <div class="alert mb-0 py-2" id="clusterAlert"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const CLUSTER_COLORS = ['#E10600', '#FFA500', '#1E90FF', '#808080'];
+const CLUSTER_NAMES  = ['Elite Champions', 'Podium Contenders', 'Points Scorers', 'Developing Drivers'];
+
+// Load cluster scatter data
+fetch('/api/get-clusters')
+  .then(r => r.json())
+  .then(data => {
+    const datasets = [0, 1, 2, 3].map(i => ({
+      label: CLUSTER_NAMES[i],
+      data: data.pca_coords
+        .map((pt, idx) => data.labels[idx] === i ? { x: pt[0], y: pt[1] } : null)
+        .filter(Boolean),
+      backgroundColor: CLUSTER_COLORS[i] + 'AA',
+      pointRadius: 4
+    }));
+
+    new Chart(document.getElementById('scatterChart').getContext('2d'), {
+      type: 'scatter',
+      data: { datasets },
+      options: {
+        responsive: true,
+        scales: {
+          x: { title: { display: true, text: 'Performance Dimension 1' } },
+          y: { title: { display: true, text: 'Performance Dimension 2' } }
+        },
+        plugins: { legend: { position: 'bottom' } }
+      }
+    });
+  })
+  .catch(err => console.error('Profile data error:', err));
+
+// Assign new driver
+document.getElementById('clusterForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const payload = {
+    grid:                   +document.getElementById('c_grid').value,
+    driver_points_cum:      +document.getElementById('c_driver_points_cum').value,
+    driver_wins_cum:        +document.getElementById('c_driver_wins_cum').value,
+    constructor_points_cum: +document.getElementById('c_constructor_points_cum').value
+  };
+  try {
+    const res  = await fetch('/api/predict-cluster', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const alertEl = document.getElementById('clusterAlert');
+    alertEl.className = 'alert mb-0 py-2';
+    alertEl.innerHTML = `<strong>${data.cluster_name}</strong>`;
+    alertEl.style.borderLeft = `4px solid ${CLUSTER_COLORS[data.cluster]}`;
+    document.getElementById('clusterResult').style.display = 'block';
+  } catch (err) {
+    alert('Error: ' + err.message);
+  }
+});
+</script>
+{% endblock %}

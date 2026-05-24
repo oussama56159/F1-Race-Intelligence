@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Full Race Forecast{% endblock %}
+
+{% block extra_css %}
+<style>
+h1 { animation: heroEntrance 0.8s cubic-bezier(0.16,1,0.3,1) both; display:inline-block; }
+@keyframes heroEntrance {
+    from { opacity:0; transform: perspective(600px) rotateX(20deg) translateY(-20px); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0);     }
+}
+/* Results table rows stagger in */
+#resultsBody tr {
+    animation: rowSlide 0.4s cubic-bezier(0.16,1,0.3,1) both;
+}
+#resultsBody tr:nth-child(1)  { animation-delay: 0.00s; }
+#resultsBody tr:nth-child(2)  { animation-delay: 0.05s; }
+#resultsBody tr:nth-child(3)  { animation-delay: 0.10s; }
+#resultsBody tr:nth-child(4)  { animation-delay: 0.15s; }
+#resultsBody tr:nth-child(5)  { animation-delay: 0.20s; }
+#resultsBody tr:nth-child(6)  { animation-delay: 0.25s; }
+#resultsBody tr:nth-child(7)  { animation-delay: 0.30s; }
+#resultsBody tr:nth-child(8)  { animation-delay: 0.35s; }
+#resultsBody tr:nth-child(9)  { animation-delay: 0.40s; }
+#resultsBody tr:nth-child(10) { animation-delay: 0.45s; }
+@keyframes rowSlide {
+    from { opacity:0; transform: perspective(400px) rotateX(10deg) translateX(-20px); }
+    to   { opacity:1; transform: perspective(400px) rotateX(0deg)  translateX(0);     }
+}
+/* Driver list item hover */
+#driversList > div {
+    transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), background 0.2s;
+}
+#driversList > div:hover {
+    transform: translateX(6px) scale(1.01);
+    background: rgba(225,6,0,0.04);
+}
+/* Results card entrance */
+#resultsCard { animation: resultReveal 0.65s cubic-bezier(0.16,1,0.3,1) both; }
+@keyframes resultReveal {
+    from { opacity:0; transform: perspective(600px) rotateX(10deg) translateY(30px) scale(0.97); }
+    to   { opacity:1; transform: perspective(600px) rotateX(0deg)  translateY(0)    scale(1);    }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-12 text-white text-center mb-4">
+    <h1><i class="fas fa-flag-checkered"></i> Full Race Forecast</h1>
+    <p class="lead">Build your grid and get a complete predicted race result before the lights go out</p>
+  </div>
+</div>
+
+<div class="row">
+  <!-- ── Add driver form ── -->
+  <div class="col-md-4 mb-4">
+    <div class="card">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-user-plus"></i> Add a Driver</h5></div>
+      <div class="card-body">
+        <form id="driverForm">
+          <div class="mb-2">
+            <label class="form-label">Driver Name</label>
+            <input type="text" class="form-control" id="driverName" placeholder="e.g. Max Verstappen" required>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Grid Position</label>
+              <input type="number" class="form-control" id="d_grid" value="1" min="1" max="20">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Season</label>
+              <input type="number" class="form-control" id="d_year" value="2023" min="1950" max="2025">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Race Number</label>
+              <input type="number" class="form-control" id="d_round" value="10" min="1" max="24">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Championship Rank</label>
+              <input type="number" class="form-control" id="d_driver_standing_pos" value="1" min="1" max="25">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Championship Points</label>
+              <input type="number" class="form-control" id="d_driver_points_cum" value="300" min="0">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Race Wins (Season)</label>
+              <input type="number" class="form-control" id="d_driver_wins_cum" value="5" min="0">
+            </div>
+          </div>
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label">Team Rank</label>
+              <input type="number" class="form-control" id="d_constructor_standing_pos" value="1" min="1" max="15">
+            </div>
+            <div class="col-6">
+              <label class="form-label">Team Points</label>
+              <input type="number" class="form-control" id="d_constructor_points_cum" value="500" min="0">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Team Wins (Season)</label>
+            <input type="number" class="form-control" id="d_constructor_wins_cum" value="8" min="0">
+          </div>
+          <button type="submit" class="btn btn-success w-100">
+            <i class="fas fa-plus"></i> Add to Grid
+          </button>
+        </form>
+
+        <hr>
+        <p class="text-muted small mb-2">Load a ready-made grid:</p>
+        <button class="btn btn-outline-danger btn-sm w-100 mb-2" onclick="loadGrid2023()">
+          🏎️ 2023 Top-10 Grid
+        </button>
+        <button class="btn btn-outline-secondary btn-sm w-100" onclick="clearDrivers()">
+          🗑️ Clear All Drivers
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Driver list + results ── -->
+  <div class="col-md-8 mb-4">
+    <!-- Driver list -->
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <h5 class="mb-0"><i class="fas fa-list"></i> Grid (<span id="driverCount">0</span> drivers)</h5>
+        <button id="predictBtn" class="btn btn-primary btn-sm" style="display:none;"
+                onclick="runPrediction()">
+          <i class="fas fa-flag-checkered"></i> Run Race Forecast
+        </button>
+      </div>
+      <div class="card-body p-0">
+        <div id="driversList" class="p-3 text-muted text-center">
+          No drivers added yet. Add at least 2 drivers to run a forecast.
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card" id="resultsCard" style="display:none;">
+      <div class="card-header"><h5 class="mb-0"><i class="fas fa-trophy"></i> Predicted Race Result</h5></div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead class="table-dark">
+            <tr>
+              <th style="width:60px">Finish</th>
+              <th>Driver</th>
+              <th>Started</th>
+              <th>Predicted Finish</th>
+              <th>Positions Gained/Lost</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+      <div class="card-footer small text-muted">
+        <i class="fas fa-info-circle"></i> Forecast based on comprehensive driver and team performance analysis
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let drivers = [];
+
+document.getElementById('driverForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  const driver = {
+    name:                     document.getElementById('driverName').value,
+    grid:                     +document.getElementById('d_grid').value,
+    year:                     +document.getElementById('d_year').value,
+    round:                    +document.getElementById('d_round').value,
+    driver_standing_pos:      +document.getElementById('d_driver_standing_pos').value,
+    driver_points_cum:        +document.getElementById('d_driver_points_cum').value,
+    driver_wins_cum:          +document.getElementById('d_driver_wins_cum').value,
+    constructor_standing_pos: +document.getElementById('d_constructor_standing_pos').value,
+    constructor_points_cum:   +document.getElementById('d_constructor_points_cum').value,
+    constructor_wins_cum:     +document.getElementById('d_constructor_wins_cum').value
+  };
+  drivers.push(driver);
+  renderDriverList();
+  document.getElementById('driverName').value = '';
+  // Auto-increment grid for next driver
+  document.getElementById('d_grid').value = Math.min(20, driver.grid + 1);
+});
+
+function renderDriverList() {
+  const list = document.getElementById('driversList');
+  document.getElementById('driverCount').textContent = drivers.length;
+
+  if (drivers.length === 0) {
+    list.innerHTML = '<p class="text-muted text-center mb-0">No drivers added yet. Add at least 2 drivers to run a forecast.</p>';
+    document.getElementById('predictBtn').style.display = 'none';
+    return;
+  }
+
+  list.innerHTML = drivers.map((d, i) => `
+    <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+      <div>
+        <strong>P${d.grid}</strong> &nbsp; ${d.name}
+        <small class="text-muted ms-2">${d.driver_points_cum} pts · ${d.driver_wins_cum} wins</small>
+      </div>
+      <button class="btn btn-sm btn-outline-danger" onclick="removeDriver(${i})">✕</button>
+    </div>
+  `).join('');
+
+  document.getElementById('predictBtn').style.display = 'inline-block';
+}
+
+function removeDriver(idx) {
+  drivers.splice(idx, 1);
+  renderDriverList();
+}
+
+function clearDrivers() {
+  drivers = [];
+  renderDriverList();
+  document.getElementById('resultsCard').style.display = 'none';
+}
+
+async function runPrediction() {
+  try {
+    const res  = await fetch('/api/predict-race', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ drivers })
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    document.getElementById('resultsCard').style.display = 'block';
+    const tbody = document.getElementById('resultsBody');
+    tbody.innerHTML = data.predictions.map(p => {
+      const delta = p.grid_position - p.rank;
+      const deltaStr = delta > 0 ? `<span class="text-success">▲${delta} gained</span>`
+                     : delta < 0 ? `<span class="text-danger">▼${Math.abs(delta)} lost</span>`
+                     : '<span class="text-muted">No change</span>';
+      const medal = p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : '';
+      return `<tr>
+        <td><strong>${medal} ${p.rank}</strong></td>
+        <td>${p.driver_name}</td>
+        <td>P${p.grid_position}</td>
+        <td>P${p.predicted_position.toFixed(1)}</td>
+        <td>${deltaStr}</td>
+      </tr>`;
+    }).join('');
+
+    document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    alert('Forecast error: ' + err.message);
+  }
+}
+
+function loadGrid2023() {
+  drivers = [
+    { name:'Max Verstappen',    grid:1,  year:2023, round:10, driver_standing_pos:1,  driver_points_cum:350, driver_wins_cum:8,  constructor_standing_pos:1, constructor_points_cum:600, constructor_wins_cum:12 },
+    { name:'Sergio Perez',      grid:2,  year:2023, round:10, driver_standing_pos:2,  driver_points_cum:200, driver_wins_cum:2,  constructor_standing_pos:1, constructor_points_cum:600, constructor_wins_cum:12 },
+    { name:'Fernando Alonso',   grid:3,  year:2023, round:10, driver_standing_pos:3,  driver_points_cum:150, driver_wins_cum:0,  constructor_standing_pos:2, constructor_points_cum:300, constructor_wins_cum:0  },
+    { name:'Lewis Hamilton',    grid:4,  year:2023, round:10, driver_standing_pos:4,  driver_points_cum:130, driver_wins_cum:0,  constructor_standing_pos:3, constructor_points_cum:250, constructor_wins_cum:0  },
+    { name:'Carlos Sainz',      grid:5,  year:2023, round:10, driver_standing_pos:5,  driver_points_cum:110, driver_wins_cum:0,  constructor_standing_pos:4, constructor_points_cum:220, constructor_wins_cum:0  },
+    { name:'Charles Leclerc',   grid:6,  year:2023, round:10, driver_standing_pos:6,  driver_points_cum:100, driver_wins_cum:0,  constructor_standing_pos:4, constructor_points_cum:220, constructor_wins_cum:0  },
+    { name:'George Russell',    grid:7,  year:2023, round:10, driver_standing_pos:7,  driver_points_cum:90,  driver_wins_cum:0,  constructor_standing_pos:3, constructor_points_cum:250, constructor_wins_cum:0  },
+    { name:'Lando Norris',      grid:8,  year:2023, round:10, driver_standing_pos:8,  driver_points_cum:80,  driver_wins_cum:0,  constructor_standing_pos:5, constructor_points_cum:150, constructor_wins_cum:0  },
+    { name:'Lance Stroll',      grid:9,  year:2023, round:10, driver_standing_pos:9,  driver_points_cum:60,  driver_wins_cum:0,  constructor_standing_pos:2, constructor_points_cum:300, constructor_wins_cum:0  },
+    { name:'Esteban Ocon',      grid:10, year:2023, round:10, driver_standing_pos:10, driver_points_cum:40,  driver_wins_cum:0,  constructor_standing_pos:6, constructor_points_cum:80,  constructor_wins_cum:0  }
+  ];
+  renderDriverList();
+}
+</script>
+{% endblock %}
